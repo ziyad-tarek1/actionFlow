@@ -3,19 +3,62 @@
 ![Project Banner](https://github.com/ziyad-tarek1/DevOps-EKS-GitOps-ActionFlow/assets/banner.png)
 
 ## Overview
-This project provides a fully automated infrastructure deployment in AWS using Terraform. The infrastructure is modularized and organized to ensure scalability and maintainability. It includes:
-- **VPC** with 2 public and 2 private subnets.
-- **Amazon EKS (Elastic Kubernetes Service)** with AWS ALB (Application Load Balancer).
-- **Monitoring stack** using Prometheus and Grafana.
-- **GitOps-based Continuous Deployment** using ArgoCD with the App of Apps pattern.
-- **Amazon ECR (Elastic Container Registry)** for container image storage.
-- **CI/CD Pipeline**:
-  - GitHub Actions as a controller for CI
-  - ArgoCD handles CD
-- **Self-Hosted Runner**:
-  - Configure GitHub Actions as a self-hosted runner in the Bastion host created from Terraform that manages the EKS cluster. 
+This project implements a GitOps-driven Continuous Deployment (CD) pipeline using GitHub Actions, Terraform, Docker, Amazon EKS, and ArgoCD. It automates Infrastructure as Code (IaC) provisioning, containerized application deployment, and Kubernetes orchestration.
 
+## Features
+- **AWS VPC Setup:**
+  - 2 Public and 2 Private Subnets
+- **Amazon EKS (Elastic Kubernetes Service):**
+  - AWS ALB (Application Load Balancer) integration
+- **Monitoring Stack:**
+  - Prometheus and Grafana
+- **GitOps-based Continuous Deployment:**
+  - Uses ArgoCD with the App of Apps pattern
+- **Amazon ECR (Elastic Container Registry):**
+  - Container image storage and management
 
+## CI/CD Pipeline
+This project uses **GitHub Actions & ArgoCD** as the CI/CD controller.
+
+### Workflows
+1. **Infrastructure as Code (IaC) Workflow** (`iac-feature.yaml`)
+   - Runs on the `iac-feature` branch
+   - Executes Terraform commands:
+     - `terraform init`
+     - `terraform fmt`
+     - `terraform validate`
+     - `terraform plan`
+     - Pushes the formatted changes to `infrastructure/`
+   - Triggers only when changes occur in the `infrastructure/` directory of this branch
+
+2. **Infrastructure Deployment Workflow** (`Infrastructure-Deployment.yaml`)
+   - Requires a manual trigger
+   - Runs Terraform commands:
+     - `terraform init`
+     - `terraform apply`
+   - Deploys infrastructure changes to AWS and uses S3 as terraform Backend
+
+3. **Application CI/CD Workflow** (`App-CI.yaml`)
+   - Runs on the `main` branch when changes occur in the `app/` directory
+   - Steps:
+     - Run HTML & CSS Linting
+     - Build Docker Image
+     - Run Container & Test
+     - Trivy Security Scan
+     - Log in to Amazon ECR
+     - Build, Tag, and Push Docker Image to AWS ECR
+     - Update Kubernetes Deployment Manifest with the new image tag (`github.run_number`)
+     - Commit and Push updated Kubernetes manifests
+
+## Secrets Required
+To run GitHub Actions workflows, configure the following secrets in your GitHub repository:
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_REGION`
+- `ECR_REPOSITORY`
+
+## Continuous Deployment (CD) with ArgoCD
+ArgoCD handles the deployment of Kubernetes resources using the **App of Apps pattern**.
 
 ## Repository Structure
 ```bash
@@ -79,14 +122,7 @@ DevOps-EKS-GitOps-ActionFlow/
 
 ```
 
-## Features
-- **Infrastructure as Code (IaC)**: Terraform modules are used to define and manage AWS infrastructure.
-- **Modular & Scalable Design**: Easily extend or modify components as needed.
-- **GitOps Workflow**: ArgoCD handles deployments using the App of Apps pattern.
-- **CI/CD Integration**:
-  - **GitHub Actions** automates the build and deployment process.
-  - **ArgoCD** ensures continuous deployment in the Kubernetes cluster.
-- **Monitoring & Observability**: Prometheus and Grafana provide real-time metrics and dashboards.
+
 
 ## Prerequisites
 - **AWS Account** with proper IAM permissions.
@@ -95,30 +131,33 @@ DevOps-EKS-GitOps-ActionFlow/
 - **ArgoCD CLI** for managing ArgoCD applications.
 - **GitHub Actions** configured with required AWS secrets.
 
+
 ## Deployment Steps
-### 1. Clone the Repository
-```bash
-git clone https://github.com/ziyad-tarek1/DevOps-EKS-GitOps-ActionFlow.git
-cd DevOps-EKS-GitOps-ActionFlow
-```
+To deploy the project, follow these steps:
 
-### 2. Set Up AWS Credentials
-Ensure that AWS credentials are configured in `~/.aws/credentials` or as environment variables:
-```bash
-export AWS_ACCESS_KEY_ID=your-access-key
-export AWS_SECRET_ACCESS_KEY=your-secret-key
-export AWS_REGION=us-east-1
-```
+1. **Fork the Repository**
+   - Navigate to [DevOps-EKS-GitOps-ActionFlow](https://github.com/ziyad-tarek1/DevOps-EKS-GitOps-ActionFlow).
+   - Click `Fork` to create a copy in your GitHub account.
 
-### 3. Initialize and Apply Terraform
-```bash
-cd infrastructure/production
-terraform init
-terraform plan
-terraform apply -auto-approve
-```
+2. **Setup GitHub Secrets**
+   - Go to your forked repository.
+   - Navigate to `Settings` > `Secrets and variables` > `Actions`.
+   - Add the required secrets listed above.
 
-### 4. Configure Kubernetes Cluster with the installed add-ons
+3. **Configure Terraform Backend**
+   - Modify the `backend.tf` file under `infrastructure/production/` to point to your Terraform state backend (e.g., S3 for AWS).
+
+4. **Run Infrastructure Deployment**
+   - Create a new branch (`iac-feature`) and push changes to trigger `iac-feature.yaml`.
+   - Manually trigger `Infrastructure-Deployment.yaml` from the GitHub Actions tab to provision the infrastructure.
+
+5. **Deploy Application**
+   - Push changes to the `app/` directory in the `main` branch to trigger `App-CI.yaml`.
+   - ArgoCD will automatically deploy the application to Kubernetes.
+
+
+### **6. Configure Kubernetes Cluster**  
+Once the infrastructure is deployed, configure `kubectl` to manage the EKS cluster:  
 ```bash
 aws eks update-kubeconfig --region us-east-1 --name my-eks
 ```
@@ -126,7 +165,8 @@ aws eks update-kubeconfig --region us-east-1 --name my-eks
 ![image](https://github.com/user-attachments/assets/d9efaa68-5b25-448a-9550-7ee826ad3b12)
 
 
-### 5. Create Kubernetes Secret for ECR
+### **7. Create Kubernetes Secret for ECR**  
+Run the following command to create a Kubernetes secret for Amazon ECR authentication:  
 ```bash
 kubectl create secret docker-registry ecr-registry-secret \
   --docker-server=135808945423.dkr.ecr.us-east-1.amazonaws.com \
@@ -135,51 +175,32 @@ kubectl create secret docker-registry ecr-registry-secret \
 ```
 
 
-### 6. Configure GitHub Actions
-  1. Create a new self-hosted runner from **Settings > Actions > Runners**.
-![image](https://github.com/user-attachments/assets/51064f07-09cb-4d1e-9d7d-aa2a4714057a)
-
-![image](https://github.com/user-attachments/assets/b9d69e84-b37d-4a93-882d-5bd11ad3e52f)
-
-![image](https://github.com/user-attachments/assets/adb8f41d-ba5c-48e1-a089-8fa508183a8f)
-
-![image](https://github.com/user-attachments/assets/d7b37f19-e253-4ef7-bb5b-a489a1a4cea5)
-  
-  2- Update **Secrets** in GitHub repository settings:
-    - `AWS_ACCESS_KEY_ID`
-    - `AWS_SECRET_ACCESS_KEY`
-    - `AWS_REGION`
-    - `ECR_REPOSITORY`
-  
-![image](https://github.com/user-attachments/assets/eb153260-5853-4cb6-94a7-383eacf8277b)
-
-
-
-### 7. Trigger CI Pipeline
-Push changes to GitHub and let GitHub Actions handle the deployment:
+### **8. Deploy Application**  
+#### **8.1 Push Changes to Trigger CI Pipeline**  
+- Push any modifications to the `app/` directory on the `main` branch to trigger `App-CI.yaml`:  
 ```bash
-git add .
+git add app/
 git commit -m "Deploy application"
 git push origin main
 ```
 ![image](https://github.com/user-attachments/assets/8b94d282-9e62-404a-8ba8-4d4ac8bb4bd6)
 
 
-### 8. Access ArgoCD Console
-1- change the svc type to LoadBalancer 
+### **9. Access ArgoCD Console**  
+#### **9.1 Change ArgoCD Service Type to LoadBalancer**  
 ```bash
 kubectl patch svc argocd-server -n argocd -p '{"spec": {"type": "LoadBalancer"}}'
 kubectl get svc -n argocd
 ```
 
-To get the initial password: (Default Username Login: admin)
-
+#### **9.2 Retrieve ArgoCD Login Credentials**  
+To get the initial password (Default Username: `admin`):  
 ```bash
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 --decode && echo
 ```
 
-### 9. Trigger CD Pipeline and add web-hook 
-- Run The App of Apps 
+### **10. Trigger CD Pipeline & Add Webhook**  
+#### **10.1 Deploy ArgoCD App of Apps**  
 ```bash
 kubectl create -f argocd-app-of-apps.yaml 
 ```
@@ -189,17 +210,20 @@ kubectl create -f argocd-app-of-apps.yaml
 
 ![image](https://github.com/user-attachments/assets/bcd4961c-7a2f-4de7-9591-524df69df139)
 
-## 10. Monitoring and Observability
-After deployment, access Prometheus and Grafana:
-- **Prometheus**: `http://<load-balancer-ip>:9090`
-- **Grafana**: `http://<load-balancer-ip>:3000` (Default Username Login: admin)
 
+### **11. Monitoring & Observability**  
+#### **11.1 Access Prometheus & Grafana**  
+Once deployed, access monitoring dashboards:  
+- **Prometheus**: `http://<load-balancer-ip>:9090`  
+- **Grafana**: `http://<load-balancer-ip>:3000` (Default Login: `admin`)  
+
+#### **11.2 Configure Access to Dashboards**  
 ```bash
-kubectl edit svc prometheus-kube-prometheus-prometheus -n prometheus  # to access the prometheus dashboard
-kubectl edit svc prometheus-grafana -n prometheus      # to access the grafana dashboard 
+kubectl edit svc prometheus-kube-prometheus-prometheus -n prometheus  # Access Prometheus Dashboard
+kubectl edit svc prometheus-grafana -n prometheus                     # Access Grafana Dashboard
 ```
 
-Retrieve Grafana Default Password:
+#### **11.3 Retrieve Grafana Default Password**  
 ```bash
 kubectl get secret prometheus-grafana -n prometheus -o jsonpath="{.data.admin-password}" | base64 -d
 ```
@@ -211,12 +235,13 @@ kubectl get secret prometheus-grafana -n prometheus -o jsonpath="{.data.admin-pa
 
 ![image](https://github.com/user-attachments/assets/a389239d-e751-4f0c-ba6b-bd9ca662afcf)
 
-## 11. Access the Application Ingress Service
+### **12. Access the Application Ingress Service**  
+Once deployed, navigate to the **Ingress Service** to access your application.
 
 ![image](https://github.com/user-attachments/assets/f4ca16a6-aaf9-4df5-88d1-a3d9f036e7eb)
 
-## Cleanup
-To remove all deployed resources:
+### **13. Cleanup (Destroy Infrastructure)**  
+If you want to remove all deployed resources, run:  
 ```bash
 cd infrastructure/production
 terraform destroy -auto-approve
