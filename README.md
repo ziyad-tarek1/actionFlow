@@ -1,6 +1,7 @@
 # DevOps-EKS-GitOps-ActionFlow
 
-![Project Banner](https://github.com/ziyad-tarek1/DevOps-EKS-GitOps-ActionFlow/assets/banner.png)
+![githubactionflow](https://github.com/user-attachments/assets/9c0e3c5e-3bba-4e76-a2d9-29036f46140c)
+
 
 ## Overview
 This project implements a GitOps-driven Continuous Deployment (CD) pipeline using GitHub Actions, Terraform, Docker, Amazon EKS, and ArgoCD. It automates Infrastructure as Code (IaC) provisioning, containerized application deployment, and Kubernetes orchestration.
