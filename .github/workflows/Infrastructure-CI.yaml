@@ -1,0 +1,59 @@
+# name: Infrastructure Update
+
+# on:
+#   push:
+#     branches:
+#       - main
+#     paths:
+#       - "infrastructure/**"
+
+# jobs:
+#   terraform-update:
+#     runs-on: self-hosted
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v3
+
+#       - name: Echo Terraform Update
+#         run: echo "Terraform updated"
+# ---
+
+#########################################################################################################
+
+
+# name: Infrastructure CI
+
+# on:
+#   push:
+#     branches:
+#       - main
+#     paths:
+#       - "infrastructure/**"
+
+# jobs:
+#   terraform-ci:
+#     runs-on: self-hosted
+
+#     steps:
+#       - name: Checkout Repository
+#         uses: actions/checkout@v4
+
+#       - name: Run Terraform Format
+#         run: terraform fmt --recursive
+#         working-directory: infrastructure/
+
+#       - name: Commit and Push Formatting Changes
+#         run: |
+#           git config --global user.name "github-actions[bot]"
+#           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+#           git add infrastructure/
+#           git diff --quiet && git diff --staged --quiet || git commit -m "Auto-format: Terraform files updated"
+#           git push
+#         continue-on-error: true  # Prevents failures if no changes exist
+
+#########################################################################################################
+
+      # - name: Initialize Terraform Backend
+      #   run: terraform init
+      #   working-directory: infrastructure/production
+
