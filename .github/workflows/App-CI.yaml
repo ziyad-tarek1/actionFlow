@@ -16,13 +16,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # # Run HTML & CSS Linting 
-      # - name: Run HTML & CSS Linting
-      #   run: |
-      #     npm install -g htmlhint csslint
-      #     htmlhint app/**/*.html || true
-      #     csslint app/css || true
-
       # Run HTML & CSS Linting 
       - name: Run HTML & CSS Linting
         run: |
@@ -74,7 +67,7 @@ jobs:
         id: build-push
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }} # skyebank
+          ECR_REPOSITORY:  ${{ secrets.ECR_REPOSITORY }}  # skyebank # ${{ secrets.ECR_REPOSITORY }} 
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:v2.${{ github.run_number }} app/
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:v2.${{ github.run_number }}
